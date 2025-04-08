@@ -1,4 +1,4 @@
-import logging
+import json
 import time
 import feedparser
 import hashlib
@@ -7,6 +7,7 @@ from datetime import datetime, UTC
 import requests
 import yaml
 from pathlib import Path
+from src.utils.logger import setup_logger, log_collection_results
 
 
 def load_config():
@@ -29,9 +30,13 @@ config = load_config()
 RSS_FEEDS = config.get("rss_feeds", [])
 
 
-def hash_id(source, title, url):
-    """Генерує унікальний ID на основі джерела + заголовка + URL."""
-    return hashlib.sha256(f"{source}_{title}_{url}".encode()).hexdigest()
+def hash_id(source, title, url, length=10):
+    """
+    Генерує скорочений унікальний ID на основі джерела + заголовка + URL.
+    За замовчуванням — 10 символів (перші символи SHA-256).
+    """
+    full_hash = hashlib.sha256(f"{source}_{title}_{url}".encode()).hexdigest()
+    return full_hash[:length]
 
 
 def fetch_rss_articles():
@@ -126,68 +131,51 @@ def fetch_gnews_top10_articles():
         return [], 0, [("GNews API", str(e))]
 
 
+def save_articles_to_raw(articles, raw_dir_name="data/raw"):
+    raw_path = Path(__file__).parents[2] / raw_dir_name
+    raw_path.mkdir(parents=True, exist_ok=True)
+
+    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+    filename = f"news_{timestamp}.json"
+    file_path = raw_path / filename
+
+    with open(file_path, "w", encoding="utf-8") as f:
+        json.dump(articles, f, ensure_ascii=False, indent=2)
+
+    return file_path
+
+
 if __name__ == "__main__":
-    start_time = time.time()
-    project_root = Path(__file__).parents[2]
 
-    # Створення папки логів
-    log_path = project_root / "logs"
-    log_path.mkdir(exist_ok=True)
+    if __name__ == "__main__":
+        start_time = time.time()
+        logger, log_path = setup_logger()
+        failed_sources_file = log_path / "failed_sources.txt"
 
-    # Основний лог-файл
-    log_file = log_path / "rss_collector.log"
-    failed_sources_file = log_path / "failed_sources.txt"
+        rss_articles, rss_ok, rss_failed = fetch_rss_articles()
+        gnews_articles, gnews_ok, gnews_failed = fetch_gnews_top10_articles()
+        duration = round(time.time() - start_time, 2)
 
-    # Налаштування логування (файл + консоль)
-    logger = logging.getLogger("rss_logger")
-    logger.setLevel(logging.INFO)
+        articles = rss_articles + gnews_articles  # ⬅ об'єднання повертаємо сюди
+        failed_sources = rss_failed + gnews_failed
+        success_sources = rss_ok + gnews_ok
 
-    # Файл
-    file_handler = logging.FileHandler(log_file, encoding="utf-8")
-    file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
-    logger.addHandler(file_handler)
+        log_collection_results(
+        logger=logger,
+        rss_ok=rss_ok,
+        gnews_ok=gnews_ok,
+        failed_sources=failed_sources,
+        articles=articles,
+        gnews_articles=gnews_articles,
+        duration=duration,
+        rss_feeds_len=len(RSS_FEEDS),
+        failed_sources_file_path=failed_sources_file
+        )
 
-    # Консоль
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
-    logger.addHandler(console_handler)
+        saved_path = save_articles_to_raw(articles)
 
-    # Отримання статей
-    rss_articles, rss_ok, rss_failed = fetch_rss_articles()
-    gnews_articles, gnews_ok, gnews_failed = fetch_gnews_top10_articles()
+        logger.info(f"💾 Articles saved to: {saved_path}")
 
-    if gnews_ok:
-        logger.info("🟢 GNews API: successfully fetched top 10 articles")
-    else:
-        logger.warning("🔴 GNews API: failed to fetch articles")
-
-    for a in gnews_articles[:2]:  # попередній перегляд новин GNews
-        logger.info(f"GNews article: {a['title']} | {a['url']}")
-
-
-    articles = rss_articles + gnews_articles
-    success_sources = rss_ok + gnews_ok
-    failed_sources = rss_failed + gnews_failed
-
-    duration = round(time.time() - start_time, 2)
-
-    # Логування результатів
-    logger.info("✅ RSS collection finished")
-    logger.info(f"✅ Sources processed: {success_sources}/{len(RSS_FEEDS)}")
-    logger.info(f"📰 Total articles collected: {len(articles)}")
-    logger.info(f"⏱ Duration: {duration} seconds")
-
-    if failed_sources:
-        logger.warning(f"⚠️ Failed sources: {len(failed_sources)}")
-        # Пишемо в файл биті джерела
-        with open(failed_sources_file, "w", encoding="utf-8") as f:
-            for url, err in failed_sources:
-                timestamp = datetime.now(UTC).isoformat()
-                line = f"{timestamp} [WARNING] ⚠️ Failed source: {url} | Reason: {err}\n"
-                logger.warning(line.strip())
-                f.write(line)
-
-
-    for a in articles[:2]:  # перші 2 для перегляду
-        print(a)
-    print(len(articles))
+        for a in articles[:2]:
+            print(a)
+        print(len(articles))

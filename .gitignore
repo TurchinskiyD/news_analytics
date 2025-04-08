@@ -1,3 +1,5 @@
 __pycache__/
 venv/
 config/secret_config.yaml
+structure_project
+generate_structure.py
