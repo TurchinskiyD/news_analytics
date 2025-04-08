@@ -1,2 +1,3 @@
 __pycache__/
 venv/
+config/secret_config.yaml
