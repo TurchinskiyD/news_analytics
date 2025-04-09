@@ -1,7 +1,6 @@
 
 import json
 from confluent_kafka import Producer
-
 from src.utils import logger
 
 

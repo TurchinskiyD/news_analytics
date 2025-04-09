@@ -7,8 +7,11 @@ from datetime import datetime, UTC
 import requests
 import yaml
 from pathlib import Path
-from src.utils.logger import setup_logger, log_collection_results
+
+from src.kafka.utils_topic import ensure_topic_exists
+from src.utils.logger import log_collection_results, setup_logger
 from src.kafka.producer import create_kafka_producer, send_to_kafka
+
 
 
 def load_config():
@@ -163,6 +166,10 @@ if __name__ == "__main__":
 
         # Kafka-відправка
         KAFKA_TOPIC = "news_raw"
+        ensure_topic_exists(KAFKA_TOPIC)
+        kafka_producer = create_kafka_producer()
+        send_to_kafka(kafka_producer, KAFKA_TOPIC, articles)
+
         kafka_producer = create_kafka_producer()
         send_to_kafka(kafka_producer, KAFKA_TOPIC, articles)
 

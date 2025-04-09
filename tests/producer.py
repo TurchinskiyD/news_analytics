@@ -1,4 +1,4 @@
-# tests/kafka_test_producer.py
+# tests/producer.py
 
 from kafka import KafkaProducer
 import json
@@ -15,6 +15,9 @@ test_event = {
     "timestamp": time.time()
 }
 
-producer.send("news_raw", value=test_event)
+producer.send("test_news", value=test_event)
 producer.flush()
-print("📤 Test event sent to 'news_raw'")
+print("📤 Test event sent to 'test_news'")
+
+
+# python tests/producer.py

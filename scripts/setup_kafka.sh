@@ -2,11 +2,14 @@
 
 set -e
 
-echo "🚀 Запускаємо Kafka через docker-compose..."
-docker-compose up -d
+# 👇 Вкажи правильну назву YAML-файлу
+COMPOSE_FILE="docker-compose.kafka.yml"
 
-echo "⏳ Очікуємо запуск Kafka (10 секунд)..."
-sleep 10
+echo "🚀 Запускаємо Kafka з $COMPOSE_FILE ..."
+docker-compose -f "$COMPOSE_FILE" up -d
+
+echo "⏳ Очікуємо запуск Kafka (60 секунд)..."
+sleep 60
 
 echo "🔍 Шукаємо Kafka-контейнер..."
 KAFKA_CONTAINER=$(docker ps --filter "name=kafka" --format "{{.ID}}")
@@ -18,13 +21,13 @@ fi
 
 echo "🟢 Kafka контейнер знайдено: $KAFKA_CONTAINER"
 
-echo "📌 Створюємо топік 'news_raw'..."
-docker exec -it "$KAFKA_CONTAINER" kafka-topics \
-  --create \
-  --topic news_raw \
-  --bootstrap-server localhost:9092 \
-  --partitions 1 \
-  --replication-factor 1 || echo "⚠️ Можливо, топік уже існує."
+#echo "📌 Створюємо топік 'news_raw'..."
+#docker exec -it "$KAFKA_CONTAINER" kafka-topics \
+#  --create \
+#  --topic news_raw \
+#  --bootstrap-server localhost:9092 \
+#  --partitions 1 \
+#  --replication-factor 1 || echo "⚠️ Можливо, топік уже існує."
 
 echo "📋 Список топіків у Kafka:"
 docker exec -it "$KAFKA_CONTAINER" kafka-topics \
