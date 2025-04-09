@@ -8,6 +8,7 @@ import requests
 import yaml
 from pathlib import Path
 from src.utils.logger import setup_logger, log_collection_results
+from src.kafka.producer import create_kafka_producer, send_to_kafka
 
 
 def load_config():
@@ -159,6 +160,13 @@ if __name__ == "__main__":
         articles = rss_articles + gnews_articles  # ⬅ об'єднання повертаємо сюди
         failed_sources = rss_failed + gnews_failed
         success_sources = rss_ok + gnews_ok
+
+        # Kafka-відправка
+        KAFKA_TOPIC = "news_raw"
+        kafka_producer = create_kafka_producer()
+        send_to_kafka(kafka_producer, KAFKA_TOPIC, articles)
+
+        logger.info(f"📤 Sent {len(articles)} articles to Kafka topic '{KAFKA_TOPIC}'")
 
         log_collection_results(
         logger=logger,
